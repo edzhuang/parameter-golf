@@ -1,0 +1,11 @@
+{
+  "author": "Eddie Zhuang",
+  "github_id": "eddiezhuang",
+  "name": "Depth Recurrence",
+  "blurb": "3 unique blocks looped 5x = 15 effective layers at dim=768 with SwiGLU MLP. Depth recurrence trades unique parameters for effective depth, enabling a wider model within the 16MB budget.",
+  "date": "2026-03-20",
+  "val_loss": null,
+  "val_bpb": null,
+  "bytes_total": null,
+  "bytes_code": null
+}
