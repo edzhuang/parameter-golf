@@ -1,0 +1,11 @@
+{
+  "author": "Eddie Zhuang",
+  "github_id": "eddiezhuang",
+  "name": "SwiGLU MLP + MTP + BigramHash 4k",
+  "blurb": "SwiGLU MLP (3 matrices at 2x expansion) replaces relu² at matched param count, plus multi-token prediction auxiliary loss (excluded from artifact) and doubled bigram hash table. Built on GPTQ-lite SOTA.",
+  "date": "2026-03-23",
+  "val_loss": null,
+  "val_bpb": null,
+  "bytes_total": null,
+  "bytes_code": null
+}
