@@ -23,7 +23,10 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel as DDP
-from flash_attn_interface import flash_attn_func as flash_attn_3_func
+try:
+    from flash_attn_interface import flash_attn_func as flash_attn_3_func
+except ImportError:
+    from flash_attn import flash_attn_func as flash_attn_3_func
 class Hyperparameters:
     data_path = os.environ.get("DATA_PATH", "./data/datasets/fineweb10B_sp1024")
     train_files = os.path.join(data_path, "fineweb_train_*.bin")
@@ -35,7 +38,7 @@ class Hyperparameters:
     val_loss_every = int(os.environ.get("VAL_LOSS_EVERY", 4000))
     train_log_every = int(os.environ.get("TRAIN_LOG_EVERY", 500))
     iterations = int(os.environ.get("ITERATIONS", 20000))
-    warmdown_iters = int(os.environ.get("WARMDOWN_ITERS", 3500))
+    warmdown_iters = int(os.environ.get("WARMDOWN_ITERS", 4000))
     warmup_steps = int(os.environ.get("WARMUP_STEPS", 20))
     train_batch_tokens = int(os.environ.get("TRAIN_BATCH_TOKENS", 786_432))
     train_seq_len = int(os.environ.get("TRAIN_SEQ_LEN", 2048))
@@ -47,7 +50,7 @@ class Hyperparameters:
     num_kv_heads = int(os.environ.get("NUM_KV_HEADS", 4))
     model_dim = int(os.environ.get("MODEL_DIM", 512))
     num_heads = int(os.environ.get("NUM_HEADS", 8))
-    mlp_mult = float(os.environ.get("MLP_MULT", 2.0))
+    mlp_mult = float(os.environ.get("MLP_MULT", 3.0))
     tie_embeddings = bool(int(os.environ.get("TIE_EMBEDDINGS", "1")))
     rope_base = float(os.environ.get("ROPE_BASE", 10000.0))
     logit_softcap = float(os.environ.get("LOGIT_SOFTCAP", 30.0))
@@ -579,12 +582,12 @@ class MLP(nn.Module):
     def __init__(self, dim: int, mlp_mult: int):
         super().__init__()
         hidden = int(mlp_mult * dim)
-        self.gate = CastedLinear(dim, hidden, bias=False)
-        self.up = CastedLinear(dim, hidden, bias=False)
-        self.down = CastedLinear(hidden, dim, bias=False)
-        self.down._zero_init = True
+        self.fc = CastedLinear(dim, hidden, bias=False)
+        self.proj = CastedLinear(hidden, dim, bias=False)
+        self.proj._zero_init = True
     def forward(self, x: Tensor) -> Tensor:
-        return self.down(F.silu(self.gate(x)) * self.up(x))
+        x = torch.relu(self.fc(x))
+        return self.proj(x.square())
 class Block(nn.Module):
     def __init__(
         self,
@@ -1183,7 +1186,7 @@ def main() -> None:
     swa_state: dict[str, Tensor] | None = None
     swa_count = 0
     ema_state = {name: t.detach().float().clone() for name, t in base_model.state_dict().items()}
-    ema_decay = 0.997
+    ema_decay = 0.998
     training_time_ms = 0.0
     stop_after_step: int | None = None
     torch.cuda.synchronize()
